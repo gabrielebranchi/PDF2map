@@ -12,7 +12,7 @@ Per ogni PDF crea:
 
 Ogni nodo riporta la **pagina del PDF** da cui proviene (`p.N`) e una **spiegazione** di una frase. Cliccalo per leggerla nel pannello laterale e usa **"Apri il PDF a pagina N"** per andare alla fonte.
 
-## Installazione
+## Installazione con Powershell
 
 ```bash
 # 1. Ollama e un modello (esempio: un modello 7-8B sta in 8 GB di VRAM)
@@ -20,7 +20,8 @@ ollama pull qwen2.5:7b
 
 # 2. pdf2map
 python -m venv .venv
-source .venv/bin/activate        # su Windows: .venv\Scripts\activate
+.venv\Scripts\activate
+# cambiare cartella con quella con interno i file di PDF2map
 pip install -e .                 # solo riga di comando
 pip install -e ".[ui]"           # con interfaccia web (Streamlit)
 ```
