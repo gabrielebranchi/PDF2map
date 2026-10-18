@@ -12,6 +12,12 @@ Per ogni PDF crea:
 
 Ogni nodo riporta la **pagina del PDF** da cui proviene (`p.N`) e una **spiegazione** di una frase. Cliccalo per leggerla nel pannello laterale e usa **"Apri il PDF a pagina N"** per andare alla fonte.
 
+## Avvio semplice (senza terminale)
+
+1. Installa [Python 3.10+](https://www.python.org/downloads/) (su Windows spunta "Add python.exe to PATH") e [Ollama](https://ollama.com/download).
+2. **Windows**: doppio clic su `start.bat`. **macOS**: doppio clic su `start.command` (se è bloccato, clic destro e Apri; se non parte, apri Terminale e scrivi `bash start.command`). **Linux**: `bash start.command`.
+3. La prima volta prepara tutto da solo (qualche minuto) e propone di scaricare il modello. Poi si apre il browser con l'app. Chiudi la finestra per fermarlo.
+
 ## Installazione con Powershell
 
 ```bash
@@ -62,6 +68,25 @@ Provato su un portatile con GPU da 8 GB:
 - `qwen2.5:7b` dà i risultati migliori tra quelli provati, anche in italiano. Un set di 21 slide ha richiesto circa un minuto a profondità 2 con le spiegazioni.
 - `llama3.1:8b` sta sulla GPU ma tende a passare all'inglese e a ripetere la stessa spiegazione su nodi fratelli.
 - `gemma2:9b` non sta in 8 GB: una parte gira sulla CPU e tutto rallenta. Controlla con `ollama ps` che la colonna `PROCESSOR` dica `100% GPU`.
+
+## App per Windows (.exe)
+
+C'è una piccola finestra per chi non vuole usare il terminale: scegli un PDF, scegli il modello, premi **Genera** e la mappa si apre nel browser.
+
+```bash
+pdf2map-gui          # dopo pip install -e .
+```
+
+Per avere un solo `pdf2map.exe` da avviare con un doppio clic:
+
+- **scaricalo** dalla pagina *Releases* del repository (lo crea GitHub Actions quando si pubblica un tag come `v0.2.0`), oppure
+- **crealo tu** su Windows lanciando `build_exe.bat` (serve Python 3.10 o più recente). Il file compare in `dist\pdf2map.exe`.
+
+Note:
+
+- L'app è solo l'interfaccia: **Ollama deve comunque essere installato e in esecuzione**, con un modello già scaricato (`ollama pull qwen2.5:7b`).
+- Il file non è firmato, quindi Windows SmartScreen o un antivirus possono avvisare. Scegli *Ulteriori informazioni, Esegui comunque*, oppure crealo tu dal codice sorgente.
+- È un file unico che si decomprime all'avvio, quindi si apre in qualche secondo.
 
 ## Limiti noti
 

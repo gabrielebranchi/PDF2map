@@ -12,6 +12,12 @@ For each PDF it creates:
 
 Every node shows the **PDF page** it comes from (`p.N`) and has a one-sentence **explanation**. Click a node to read it in a side panel, and use **"Open the PDF at page N"** to jump to the source.
 
+## Easy start (no terminal needed)
+
+1. Install [Python 3.10+](https://www.python.org/downloads/) (on Windows tick "Add python.exe to PATH") and [Ollama](https://ollama.com/download).
+2. **Windows**: double-click `start.bat`. **macOS**: double-click `start.command` (if it is blocked, right-click, Open; if it does not run, open Terminal and type `bash start.command`). **Linux**: `bash start.command`.
+3. The first time it prepares everything by itself (a few minutes) and offers to download the model. Then your browser opens with the app. Close the window to stop it.
+
 ## Install with Powershell
 
 ```bash
@@ -62,6 +68,25 @@ Tested on a laptop with an 8 GB GPU:
 - `qwen2.5:7b` gives the best results of the models tried, including in Italian. A 21-page slide deck took about a minute at depth 2 with explanations.
 - `llama3.1:8b` fits on the GPU but tended to switch to English and to repeat the same explanation on sibling nodes.
 - `gemma2:9b` does not fit in 8 GB: part of it runs on the CPU and everything slows down. Check with `ollama ps` that the `PROCESSOR` column says `100% GPU`.
+
+## Windows app (.exe)
+
+There is a small window for people who do not want a terminal: pick a PDF, choose the model, press **Generate**, and the map opens in your browser.
+
+```bash
+pdf2map-gui          # after pip install -e .
+```
+
+To get a single `pdf2map.exe` you can double-click:
+
+- **Download it** from the repository's *Releases* page (built automatically by GitHub Actions when a tag like `v0.2.0` is pushed), or
+- **build it yourself** on Windows by running `build_exe.bat` (needs Python 3.10+). The file appears in `dist\pdf2map.exe`.
+
+Notes:
+
+- The app is only the interface: **Ollama must still be installed and running**, with a model already pulled (`ollama pull qwen2.5:7b`).
+- The file is not code-signed, so Windows SmartScreen or an antivirus may warn about it. Choose *More info, Run anyway*, or build it yourself from the source.
+- It is a single file that unpacks itself on start, so it opens in a few seconds.
 
 ## Known limits
 
