@@ -1,0 +1,285 @@
+"""Esportazione della mappa: Markdown (compatibile markmap), JSON e HTML interattivo offline."""
+from __future__ import annotations
+
+import html
+import json
+import os
+from pathlib import Path
+from urllib.parse import quote
+
+
+def to_json(tree: dict) -> str:
+    return json.dumps(tree, ensure_ascii=False, indent=2)
+
+
+def to_markdown(tree: dict) -> str:
+    lines = [f"# {tree['title']}", ""]
+
+    def walk(nodes: list[dict], level: int) -> None:
+        for n in nodes:
+            page = f" (p. {n['page']})" if n.get("page") else ""
+            note = f": {n['summary']}" if n.get("summary") else ""
+            lines.append(f"{'  ' * level}- {n['title']}{page}{note}")
+            walk(n.get("children", []), level + 1)
+
+    walk(tree.get("children", []), 0)
+    return "\n".join(lines) + "\n"
+
+
+def pdf_link(pdf: Path, out_dir: Path) -> str:
+    """Percorso del PDF visto dal file HTML: relativo se possibile (così cartella e file si spostano insieme)."""
+    try:
+        rel = os.path.relpath(Path(pdf).resolve(), Path(out_dir).resolve())
+        return quote(rel.replace(os.sep, "/"))
+    except ValueError:  # su Windows, dischi diversi
+        return Path(pdf).resolve().as_uri()
+
+
+def to_html(tree: dict, pdf_href: str | None = None) -> str:
+    data = json.dumps(tree, ensure_ascii=False).replace("</", "<\\/")
+    pdf = json.dumps(pdf_href).replace("</", "<\\/")
+    return (_TEMPLATE.replace("__TITLE__", html.escape(tree["title"]))
+            .replace("__PDF__", pdf).replace("__DATA__", data))
+
+
+_TEMPLATE = r"""<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root{--bg:#eef1f4;--ink:#16222e;--muted:#5b6b7a;--node:#ffffff;--bar:#ffffffd9;--edge:#c3ccd5}
+@media (prefers-color-scheme:dark){:root{--bg:#10171d;--ink:#e6edf3;--muted:#8a9aa8;--node:#1a242d;--bar:#10171dd9;--edge:#2c3a46}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 "Avenir Next","Segoe UI",system-ui,sans-serif}
+header{position:fixed;inset:0 0 auto 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--bar);backdrop-filter:blur(6px);z-index:2}
+header h1{font-size:15px;font-weight:600;margin:0 auto 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button{font:inherit;color:var(--ink);background:var(--node);border:1px solid var(--edge);border-radius:6px;padding:5px 10px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid #4338ca;outline-offset:2px}
+svg{position:fixed;inset:0;width:100%;height:100%;cursor:grab;touch-action:none}
+svg.drag{cursor:grabbing}
+.node{cursor:default}.node.has-kids{cursor:pointer}
+.node text{pointer-events:none}
+#panel{position:fixed;top:56px;right:14px;width:min(330px,calc(100% - 28px));max-height:55vh;overflow:auto;background:var(--node);border:1px solid var(--edge);border-radius:8px;padding:12px 14px;z-index:2}
+#panel h2{font-size:15px;line-height:1.3;margin:0 0 4px}
+#panel .meta{color:var(--muted);font-size:12px;margin-bottom:8px}
+#panel p{margin:0;max-width:60ch}
+#panel .open{display:inline-block;margin-top:10px;padding:5px 10px;border:1px solid var(--edge);border-radius:6px;color:var(--ink);text-decoration:none}
+#panel .open:hover{border-color:var(--muted)}
+#panel .open:focus-visible{outline:2px solid #4338ca;outline-offset:2px}
+@media print{
+  :root{--bg:#fff;--ink:#16222e;--muted:#5b6b7a;--node:#fff;--edge:#c3ccd5}
+  header,#panel,.hint{display:none}
+  html,body{height:auto}
+  svg{position:static;width:100%;height:calc(100vh - 8mm)}
+  @page{size:landscape;margin:8mm}
+}
+.hint{position:fixed;left:14px;bottom:10px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>__TITLE__</h1>
+  <button id="expand">Espandi tutto</button>
+  <button id="collapse">Comprimi</button>
+  <button id="fit">Adatta</button>
+  <button id="save">Salva SVG</button>
+  <button id="png">Salva PNG</button>
+  <button id="print">Stampa / PDF</button>
+</header>
+<svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mappa concettuale"><g id="g"></g></svg>
+<aside id="panel" hidden></aside>
+<div class="hint">Clic su un nodo per leggerne la spiegazione e aprirlo o chiuderlo · trascina per spostare · rotella per zoom · "p.N" indica la pagina del PDF</div>
+<script>
+const PDF = __PDF__;
+const DATA = __DATA__;
+const NS = "http://www.w3.org/2000/svg";
+const COLORS = ["#0f766e","#4338ca","#b45309","#be123c","#0369a1","#4d7c0f","#7e22ce","#a16207"];
+const H = 30, GAPY = 10, GAPX = 56, PADX = 12, MAXCH = 46;
+const svg = document.getElementById("svg"), g = document.getElementById("g");
+const ctx = document.createElement("canvas").getContext("2d");
+ctx.font = '14px "Avenir Next","Segoe UI",system-ui,sans-serif';
+
+(function init(n, d, color) {
+  n.depth = d; n.color = color; n.open = d < 2;
+  n.label = n.title.length > MAXCH ? n.title.slice(0, MAXCH - 1) + "…" : n.title;
+  n.tw = ctx.measureText(n.label).width;
+  n.summary = n.summary || "";
+  n.kids = n.children || [];
+  n.kids.forEach((k, i) => init(k, d + 1, d === 0 ? COLORS[i % COLORS.length] : color));
+})(DATA, 0, "#16222e");
+
+let sel = null;
+const panel = document.getElementById("panel");
+function showPanel(n) {
+  panel.replaceChildren();
+  const h = document.createElement("h2"); h.textContent = n.title; panel.appendChild(h);
+  const meta = [];
+  if (n.page) meta.push("Pagina " + n.page);
+  if (n.kids.length) meta.push(n.kids.length + (n.kids.length === 1 ? " sotto-concetto" : " sotto-concetti"));
+  if (meta.length) { const m = document.createElement("div"); m.className = "meta"; m.textContent = meta.join(", "); panel.appendChild(m); }
+  const p = document.createElement("p"); p.textContent = n.summary || "Nessuna spiegazione per questo nodo."; panel.appendChild(p);
+  const pg = n.page || minPage(n);
+  if (PDF && pg) {
+    const a = document.createElement("a");
+    a.className = "open"; a.href = PDF + "?v=" + Date.now() + "#page=" + pg; a.target = "_blank"; a.rel = "noopener";
+    a.textContent = "Apri il PDF a pagina " + pg;
+    panel.appendChild(a);
+  }
+  panel.hidden = false;
+}
+function minPage(n) {
+  let best = n.page || null;
+  n.kids.forEach(k => { const p = minPage(k); if (p && (!best || p < best)) best = p; });
+  return best;
+}
+
+let view = { x: 40, y: 80, k: 1 };
+const applyView = () => g.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`);
+
+function layout() {
+  const cols = [], vis = []; let y = 0;
+  (function walk(n) {
+    n.w = n.tw + PADX * 2 + (n.page ? 34 : 0) + (n.kids.length ? 22 : 0);
+    cols[n.depth] = Math.max(cols[n.depth] || 0, n.w);
+    const kids = n.open ? n.kids : [];
+    kids.forEach(walk);
+    if (kids.length) n.y = (kids[0].y + kids[kids.length - 1].y) / 2;
+    else { n.y = y; y += H + GAPY; }
+    vis.push(n);
+  })(DATA);
+  const xs = [0];
+  for (let i = 1; i < cols.length; i++) xs[i] = xs[i - 1] + cols[i - 1] + GAPX;
+  vis.forEach(n => n.x = xs[n.depth]);
+  return vis;
+}
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+function render() {
+  g.replaceChildren();
+  const vis = layout();
+  vis.forEach(n => {
+    if (!n.open) return;
+    n.kids.forEach(k => {
+      const x1 = n.x + n.w, x2 = k.x, mx = (x1 + x2) / 2;
+      el("path", { d: `M${x1},${n.y}C${mx},${n.y} ${mx},${k.y} ${x2},${k.y}`, fill: "none",
+                   stroke: k.color, "stroke-width": k.depth <= 1 ? 2.5 : 1.5, opacity: .75 }, g);
+    });
+  });
+  vis.forEach(n => {
+    const grp = el("g", { class: "node" + (n.kids.length ? " has-kids" : ""), transform: `translate(${n.x},${n.y - H / 2})` }, g);
+    const solid = n.depth <= 1;
+    el("rect", { width: n.w, height: H, rx: n.depth === 0 ? H / 2 : 6,
+                 fill: solid ? n.color : "var(--node)", stroke: n.color, "stroke-width": solid ? 0 : 1.5 }, grp);
+    if (n === sel) el("rect", { width: n.w + 6, height: H + 6, x: -3, y: -3, rx: 8, fill: "none", stroke: n.color, "stroke-width": 2 }, grp);
+    const ink = solid ? "#fff" : "var(--ink)";
+    const t = el("text", { x: PADX, y: H / 2 + 5, fill: ink, "font-weight": n.depth <= 1 ? 600 : 400 }, grp);
+    t.textContent = n.label;
+    el("title", {}, grp).textContent = n.title + (n.page ? ` (p. ${n.page})` : "") + (n.summary ? "\n" + n.summary : "");
+    if (n.page) {
+      const p = el("text", { x: PADX + n.tw + 6, y: H / 2 + 4, fill: ink, opacity: .65, "font-size": 11 }, grp);
+      p.textContent = "p." + n.page;
+    }
+    if (n.kids.length) {
+      const a = el("text", { x: n.w - 16, y: H / 2 + 5, fill: ink, "font-size": 12 }, grp);
+      a.textContent = n.open ? "◂" : "▸";
+    }
+    grp.addEventListener("click", () => {
+      if (moved) return;
+      sel = n; showPanel(n);
+      if (n.kids.length) n.open = !n.open;
+      render();
+    });
+  });
+  return vis;
+}
+
+function fit() {
+  const b = g.getBBox(), W = innerWidth, Hh = innerHeight - 70;
+  view.k = Math.min(1, (W - 60) / (b.width || 1), Hh / (b.height || 1));
+  view.x = 30 - b.x * view.k;
+  view.y = 60 + (Hh - b.height * view.k) / 2 - b.y * view.k;
+  applyView();
+}
+
+const setAll = (n, open) => { if (n.kids.length) n.open = open; n.kids.forEach(k => setAll(k, open)); };
+document.getElementById("expand").onclick = () => { setAll(DATA, true); render(); fit(); };
+document.getElementById("collapse").onclick = () => { setAll(DATA, false); DATA.open = true; render(); fit(); };
+document.getElementById("fit").onclick = fit;
+function buildSvg() {
+  const b = g.getBBox(), pad = 20, w = b.width + 2 * pad, h = b.height + 2 * pad;
+  const clone = svg.cloneNode(true);
+  clone.removeAttribute("style"); clone.removeAttribute("class");
+  clone.setAttribute("viewBox", `${b.x - pad} ${b.y - pad} ${w} ${h}`);
+  clone.setAttribute("width", w); clone.setAttribute("height", h);
+  clone.setAttribute("font-family", '"Avenir Next","Segoe UI",system-ui,sans-serif');
+  clone.setAttribute("font-size", "14");
+  const inner = clone.querySelector("g"); inner.removeAttribute("transform");
+  clone.querySelectorAll("[fill='var(--node)']").forEach(e => e.setAttribute("fill", "#ffffff"));
+  clone.querySelectorAll("[fill='var(--ink)']").forEach(e => e.setAttribute("fill", "#16222e"));
+  const bg = document.createElementNS(NS, "rect");
+  bg.setAttribute("x", b.x - pad); bg.setAttribute("y", b.y - pad);
+  bg.setAttribute("width", w); bg.setAttribute("height", h); bg.setAttribute("fill", "#ffffff");
+  clone.insertBefore(bg, inner);
+  return { text: new XMLSerializer().serializeToString(clone), w, h };
+}
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  Object.assign(document.createElement("a"), { href: url, download: name }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+document.getElementById("save").onclick = () =>
+  download(new Blob([buildSvg().text], { type: "image/svg+xml" }), "mappa.svg");
+document.getElementById("png").onclick = () => {
+  const { text, w, h } = buildSvg(), s = Math.min(2, 8000 / Math.max(w, h));
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement("canvas");
+    c.width = Math.round(w * s); c.height = Math.round(h * s);
+    const x = c.getContext("2d"); x.scale(s, s); x.drawImage(img, 0, 0, w, h);
+    c.toBlob(b => download(b, "mappa.png"), "image/png");
+  };
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(text);
+};
+document.getElementById("print").onclick = () => print();
+addEventListener("beforeprint", () => {
+  const b = g.getBBox(), pad = 20;
+  svg.setAttribute("viewBox", `${b.x - pad} ${b.y - pad} ${b.width + 2 * pad} ${b.height + 2 * pad}`);
+  g.removeAttribute("transform");
+});
+addEventListener("afterprint", () => { svg.removeAttribute("viewBox"); applyView(); });
+
+let drag = null, moved = false;
+svg.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; moved = false; });
+addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 4) { moved = true; svg.classList.add("drag"); }
+  if (moved) { view.x = drag.vx + dx; view.y = drag.vy + dy; applyView(); }
+});
+addEventListener("pointerup", e => {
+  if (drag && !moved && e.target === svg) { sel = null; panel.hidden = true; render(); }
+  drag = null; svg.classList.remove("drag"); setTimeout(() => moved = false, 0);
+});
+svg.addEventListener("wheel", e => {
+  e.preventDefault();
+  const f = Math.exp(-e.deltaY * 0.0015), k = Math.min(3, Math.max(0.1, view.k * f));
+  view.x = e.clientX - (e.clientX - view.x) * (k / view.k);
+  view.y = e.clientY - (e.clientY - view.y) * (k / view.k);
+  view.k = k; applyView();
+}, { passive: false });
+
+render(); fit();
+addEventListener("resize", fit);
+</script>
+</body>
+</html>
+"""

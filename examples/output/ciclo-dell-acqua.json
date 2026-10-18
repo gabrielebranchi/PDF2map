@@ -1,0 +1,94 @@
+{
+  "title": "Il ciclo dell'acqua (esempio)",
+  "page": null,
+  "summary": "",
+  "children": [
+    {
+      "title": "Il ciclo dell'acqua",
+      "page": 1,
+      "summary": "",
+      "children": [
+        {
+          "title": "Oceani",
+          "page": 1,
+          "summary": "Contengono circa il 97% dell'acqua del pianeta.",
+          "children": []
+        },
+        {
+          "title": "Atmosfera",
+          "page": 1,
+          "summary": "",
+          "children": []
+        },
+        {
+          "title": "Terraferma",
+          "page": 1,
+          "summary": "",
+          "children": []
+        }
+      ]
+    },
+    {
+      "title": "Evaporazione e condensazione",
+      "page": 2,
+      "summary": "",
+      "children": [
+        {
+          "title": "Evaporazione",
+          "page": 2,
+          "summary": "Il Sole trasforma l'acqua di mari, laghi e fiumi in vapore, un processo chiamato evaporazione.",
+          "children": []
+        },
+        {
+          "title": "Traspirazione",
+          "page": 2,
+          "summary": "Le piante rilasciano vapore dalle foglie, un processo simile all'evaporazione chiamato traspirazione.",
+          "children": []
+        },
+        {
+          "title": "Condensazione",
+          "page": 2,
+          "summary": "Il vapore salendo in quota si raffredda e passa allo stato liquido, un processo chiamato condensazione.",
+          "children": []
+        },
+        {
+          "title": "Formazione delle nuvole",
+          "page": 2,
+          "summary": "Le minuscole gocce di acqua che risultano dalla condensazione formano le nuvole.",
+          "children": []
+        }
+      ]
+    },
+    {
+      "title": "Precipitazioni e deflusso",
+      "page": 3,
+      "summary": "",
+      "children": [
+        {
+          "title": "Gocce nelle nuvole",
+          "page": 3,
+          "summary": "Le gocce nelle nuvole diventano pesanti e cadono come pioggia, neve o grandine.",
+          "children": []
+        },
+        {
+          "title": "Acqua nel suolo",
+          "page": 3,
+          "summary": "Parte dell'acqua penetra nel suolo e alimenta le falde.",
+          "children": []
+        },
+        {
+          "title": "Acqua in superficie",
+          "page": 3,
+          "summary": "Parte dell'acqua scorre in superficie verso fiumi e mari.",
+          "children": []
+        },
+        {
+          "title": "Tempo di permanenza dell'acqua",
+          "page": 3,
+          "summary": "Varia molto: pochi giorni nell'atmosfera, secoli nelle falde profonde, millenni nelle calotte glaciali.",
+          "children": []
+        }
+      ]
+    }
+  ]
+}
